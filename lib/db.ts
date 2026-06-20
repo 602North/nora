@@ -326,3 +326,83 @@ export function createWsLead(input: WsLeadInput): WsLead {
 export function getWsLeads(): WsLead[] {
   return getAllWsLeads.all() as WsLead[];
 }
+
+// ─── Pattern Discovery Guide Leads (NORA-85) ──────────────────────────────────
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS pattern_leads (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    first_name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    join_north INTEGER NOT NULL DEFAULT 1,
+    referral_source TEXT,
+    confirmation_sent INTEGER NOT NULL DEFAULT 0,
+    downloaded INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`);
+
+export interface PatternLead {
+  id: number;
+  first_name: string;
+  email: string;
+  join_north: number;
+  referral_source: string | null;
+  confirmation_sent: number;
+  downloaded: number;
+  created_at: string;
+}
+
+export interface PatternLeadInput {
+  first_name: string;
+  email: string;
+  join_north?: boolean;
+  referral_source?: string;
+}
+
+const insertPatternLead = db.prepare(`
+  INSERT INTO pattern_leads (first_name, email, join_north, referral_source)
+  VALUES (@first_name, @email, @join_north, @referral_source)
+`);
+
+const getPatternLeadByIdStmt = db.prepare(
+  "SELECT * FROM pattern_leads WHERE id = ?"
+);
+
+const getAllPatternLeads = db.prepare(
+  "SELECT * FROM pattern_leads ORDER BY created_at DESC"
+);
+
+const markConfirmationSent = db.prepare(
+  "UPDATE pattern_leads SET confirmation_sent = 1 WHERE id = ?"
+);
+
+const markDownloaded = db.prepare(
+  "UPDATE pattern_leads SET downloaded = 1 WHERE id = ?"
+);
+
+export function createPatternLead(input: PatternLeadInput): PatternLead {
+  const result = insertPatternLead.run({
+    first_name: input.first_name,
+    email: input.email,
+    join_north: input.join_north ? 1 : 0,
+    referral_source: input.referral_source || null,
+  });
+  return db.prepare("SELECT * FROM pattern_leads WHERE id = ?").get(result.lastInsertRowid) as PatternLead;
+}
+
+export function getPatternLeadById(id: number): PatternLead | undefined {
+  return getPatternLeadByIdStmt.get(id) as PatternLead | undefined;
+}
+
+export function getPatternLeads(): PatternLead[] {
+  return getAllPatternLeads.all() as PatternLead[];
+}
+
+export function confirmPatternLeadSent(id: number): void {
+  markConfirmationSent.run(id);
+}
+
+export function markPatternLeadDownloaded(id: number): void {
+  markDownloaded.run(id);
+}
