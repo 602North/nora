@@ -269,3 +269,60 @@ export function getBookings(): BookingDetail[] {
     ORDER BY s.slot_date ASC, s.slot_time ASC
   `).all() as BookingDetail[];
 }
+
+// ─── Walter Sierra Leads (NORA-23) ─────────────────────────────────────────────
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS ws_leads (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    phone TEXT,
+    service TEXT NOT NULL,
+    message TEXT,
+    source TEXT NOT NULL DEFAULT 'ws_landing_page',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`);
+
+export interface WsLead {
+  id: number;
+  name: string;
+  email: string;
+  phone: string | null;
+  service: string;
+  message: string | null;
+  source: string;
+  created_at: string;
+}
+
+export interface WsLeadInput {
+  name: string;
+  email: string;
+  phone?: string;
+  service: string;
+  message?: string;
+}
+
+const insertWsLead = db.prepare(`
+  INSERT INTO ws_leads (name, email, phone, service, message, source)
+  VALUES (@name, @email, @phone, @service, @message, @source)
+`);
+
+const getAllWsLeads = db.prepare(`
+  SELECT * FROM ws_leads ORDER BY created_at DESC
+`);
+
+export function createWsLead(input: WsLeadInput): WsLead {
+  const result = insertWsLead.run({
+    ...input,
+    phone: input.phone || null,
+    message: input.message || null,
+    source: "ws_landing_page",
+  });
+  return db.prepare("SELECT * FROM ws_leads WHERE id = ?").get(result.lastInsertRowid) as WsLead;
+}
+
+export function getWsLeads(): WsLead[] {
+  return getAllWsLeads.all() as WsLead[];
+}
